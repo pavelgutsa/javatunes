@@ -4,18 +4,23 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.util.List;
+import java.util.Set;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.persistence.Persistence;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.javatunes.model.Book;
-//import javax.validation.ConstraintViolationException;
 
 //@RunWith(Arquillian.class)
 public class BookTest {
@@ -27,6 +32,8 @@ public class BookTest {
 	private static EntityManagerFactory emf = Persistence.createEntityManagerFactory("javatunes-test");;
 	private EntityManager em;
 	private EntityTransaction tx;
+	private static ValidatorFactory vf;
+	private static Validator validator;
 
 	// ======================================
 	// = Lifecycle Methods =
@@ -35,6 +42,14 @@ public class BookTest {
 	@BeforeClass
 	public static void initEntityManager() throws Exception {
 		//emf = Persistence.createEntityManagerFactory("javatunes-test");
+		vf = Validation.buildDefaultValidatorFactory();
+		validator = vf.getValidator();
+	}
+	
+	@AfterClass
+	public static void close() {
+		vf.close();
+		emf.close();
 	}
 	
 	@Before
@@ -58,6 +73,7 @@ public class BookTest {
 		entityManagerNotNull();
 		shouldFindJavaEE7Book();
 		shouldCreateH2G2Book();
+		shouldRaiseConstraintViolationCauseNullTitle();
 	}
 	
 	public void entityManagerNotNull() throws Exception {
@@ -79,6 +95,12 @@ public class BookTest {
 		// Creates an instance of book
 		Book book = new Book("H2G2", "The Hitchhiker's Guide to the Galaxy",
 				12.5F, "1-84023-742-2", 354, false);
+		
+		Set<ConstraintViolation<Book>> violations = validator
+				.validate(book);
+		assertEquals(0, violations.size());
+		
+		System.out.println("shouldCreateH2G2Book validation succeeded");
 
 		// Persists the book to the database
 		tx.begin();
@@ -102,13 +124,23 @@ public class BookTest {
 		System.out.println("shouldCreateH2G2Book found The Hitchhiker's Guide to the Galaxy book");
 	}
 	
-	/*
-	@Test(expected = ConstraintViolationException.class)
 	public void shouldRaiseConstraintViolationCauseNullTitle() {
 
 		Book book = new Book(null, "Null title, should fail", 12.5F,
 				"1-84023-742-2", 354, false);
-		em.persist(book);
+		
+		Set<ConstraintViolation<Book>> violations = validator
+				.validate(book);
+		
+		assertEquals(1, violations.size());
+		
+		assertEquals("may not be null", violations.iterator().next()
+				.getMessage());
+		assertEquals(null, violations.iterator().next()
+				.getInvalidValue());
+		assertEquals("{javax.validation.constraints.NotNull.message}", violations
+				.iterator().next().getMessageTemplate());
+		
+		System.out.println("shouldRaiseConstraintViolationCauseNullTitle succeeded");
 	}
-	*/	
 }
